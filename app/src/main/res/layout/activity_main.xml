@@ -5,16 +5,22 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="com.example.satellitemap.MainActivity">
-    <ScrollView
+    <LinearLayout
+        android:id="@+id/linearLyout"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
-        <TextView
-            android:layout_height="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+        <ScrollView
             android:layout_width="match_parent"
-            android:id="@+id/test"
-            android:text="搜寻信号中，请耐心等待"
-            android:scrollbars="vertical"
-            android:isScrollContainer="true">
-        </TextView>
-    </ScrollView>
+            android:layout_height="match_parent">
+            <TextView
+                android:layout_height="match_parent"
+                android:layout_width="match_parent"
+                android:id="@+id/test"
+                android:text="搜寻信号中，请耐心等待"
+                android:scrollbars="vertical"
+                android:isScrollContainer="true">
+            </TextView>
+        </ScrollView>
+    </LinearLayout>
 </android.support.design.widget.CoordinatorLayout>
