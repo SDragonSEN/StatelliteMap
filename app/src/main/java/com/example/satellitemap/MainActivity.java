@@ -6,6 +6,10 @@ import android.content.pm.PackageManager;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.GnssStatus;
 import android.location.Location;
 import android.location.LocationListener;
@@ -31,6 +35,8 @@ public class MainActivity extends AppCompatActivity {
     private Handler mHandler;
     private MyView myView;
     private ArrayList<MyStatellite> myStatellites = new ArrayList<MyStatellite>();
+    private SensorManager mSensorManager;
+    private float mRotateDegree;//弧度制
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,16 +62,6 @@ public class MainActivity extends AppCompatActivity {
         mTextView = (TextView)findViewById(R.id.test);
         mHandler = new Handler(getMainLooper());
 
-      /*  mTextView.post(new Runnable() {
-            @Override
-            public void run() {
-
-                LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) view.getLayoutParams();
-                layoutParams.height = layoutParams.width;
-                Log.e("ZSZS",layoutParams.width+"");
-                view.setLayoutParams(layoutParams);
-            }
-        });*/
         mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 
         if ((ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
@@ -77,6 +73,10 @@ public class MainActivity extends AppCompatActivity {
         mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
                 1000, 0, mLocationListener);
         mLocationManager.registerGnssStatusCallback(mGnssStatusCallback);
+
+        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        mSensorManager.registerListener(mSensorEventListener,mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),SensorManager.SENSOR_DELAY_NORMAL );
+        mSensorManager.registerListener(mSensorEventListener,mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),SensorManager.SENSOR_DELAY_NORMAL );
     }
     private LocationListener mLocationListener = new LocationListener() {
         @Override
@@ -191,6 +191,36 @@ public class MainActivity extends AppCompatActivity {
             mHandler.post(r);
         }
     };
+    SensorEventListener mSensorEventListener = new SensorEventListener() {
+        float[] geomagnetic = new float[3];//用来保存地磁传感器的值
+        float[] gravity = new float[3];
+        @Override
+        public void onSensorChanged(SensorEvent event) {
+            if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+                geomagnetic = event.values;
+            }
+            if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+                gravity = event.values;
+
+                float[] r = new float[9];
+                float[] values = new float[3];
+
+                SensorManager.getRotationMatrix(r, null, gravity, geomagnetic);
+
+                SensorManager.getOrientation(r, values);
+
+                mRotateDegree = (float)Math.toDegrees(values[0]) * -1;
+
+                myView.invalidate();
+            }
+        }
+
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+            // TODO Auto-generated method stub
+
+        }
+    };
     class MyView extends View{
         public static final String BACKGROUND_COLOR1 = "#004400";
         public static final String BACKGROUND_COLOR2 = "#00aa00";
@@ -213,13 +243,24 @@ public class MainActivity extends AppCompatActivity {
             super(context);
 
             DisplayMetrics dm =getResources().getDisplayMetrics();
-            mapRadium = dm.widthPixels / 2 - 50;
+            mapRadium = dm.widthPixels / 2 - 75;
             mapCenterX = dm.widthPixels / 2;
             mapCenterY = dm.widthPixels / 2;
         }
         @Override
         public void onDraw(Canvas canvas){
+            canvas.save();
+            canvas.rotate(mRotateDegree, mapCenterX, mapCenterY);
+
             Paint paint = new Paint();
+
+            paint.setColor(Color.YELLOW);
+            paint.setTextSize(60);
+
+            canvas.drawText("N",mapCenterX - 20, mapCenterY - mapRadium - 10, paint);
+            canvas.drawText("S",mapCenterX - 20, mapCenterY + mapRadium + 50, paint);
+            canvas.drawText("E",mapCenterX - mapRadium - 50, mapCenterY + 20, paint);
+            canvas.drawText("W",mapCenterX + mapRadium + 10, mapCenterY + 20, paint);
 
             // 显示仪背景
             paint.setColor(Color.parseColor(BACKGROUND_COLOR2));
@@ -281,10 +322,12 @@ public class MainActivity extends AppCompatActivity {
                         paint.setColor(Color.parseColor(SATELLITE_COLOR_OTHER));
                         break;
                 }
-                float x = (float)(mapCenterX - Math.cos(myStatellite.azimuthDegrees * Math.PI / 180) * myStatellite.radium / MAX_DISTANCE * this.mapRadium);
-                float y = (float)(mapCenterY + Math.sin(myStatellite.azimuthDegrees * Math.PI / 180) * myStatellite.radium / MAX_DISTANCE * this.mapRadium);
+                float x = (float)(mapCenterX + Math.sin(myStatellite.azimuthDegrees * Math.PI / 180) * myStatellite.radium / MAX_DISTANCE * this.mapRadium);
+                float y = (float)(mapCenterY - Math.cos(myStatellite.azimuthDegrees * Math.PI / 180) * myStatellite.radium / MAX_DISTANCE * this.mapRadium);
                 canvas.drawCircle(x, y, 10, paint);
             }
+
+            canvas.restore();
 
             super.onDraw(canvas);
         }
