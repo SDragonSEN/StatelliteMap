@@ -26,17 +26,21 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Queue;
 
 import static android.location.GnssStatus.*;
 
 public class MainActivity extends AppCompatActivity {
     private LocationManager mLocationManager = null;
-    private TextView mTextView;
     private Handler mHandler;
     private MyView myView;
     private ArrayList<MyStatellite> myStatellites = new ArrayList<MyStatellite>();
     private SensorManager mSensorManager;
     private float mRotateDegree;//弧度制
+    private Queue<Float> mRotateDegrees = new LinkedList<Float>();
+
+    private TextView mGpsTextView,mBeidouTextView,mGlonasTextView,mGalileoTextView,mQzssTextView,mSbasTextView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,6 +50,13 @@ public class MainActivity extends AppCompatActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         setContentView(R.layout.activity_main);
+
+        mGpsTextView = ((TextView)findViewById(R.id.gpsNum));
+        mBeidouTextView = ((TextView)findViewById(R.id.beidouNum));
+        mGlonasTextView = ((TextView)findViewById(R.id.glonasNum));
+        mGalileoTextView = ((TextView)findViewById(R.id.galileoNum));
+        mQzssTextView = ((TextView)findViewById(R.id.qzssNum));
+        mSbasTextView = ((TextView)findViewById(R.id.sbasNum));
 
         DisplayMetrics dm =getResources().getDisplayMetrics();
 
@@ -59,7 +70,6 @@ public class MainActivity extends AppCompatActivity {
 
         linearLayout.addView(myView, 0);
 
-        mTextView = (TextView)findViewById(R.id.test);
         mHandler = new Handler(getMainLooper());
 
         mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
@@ -124,68 +134,50 @@ public class MainActivity extends AppCompatActivity {
             if ( numb == 0)
                 return;
 
-            final StringBuffer sb = new StringBuffer();
-
             myStatellites.clear();
 
-            sb.append("卫星状态：\n");
+            int gps = 0,beidou = 0,glonas = 0,galileo = 0,qzss = 0,sbas = 0;
             for (int i = 0; i < numb; i++){
-                sb.append(Integer.toString(i));
-
-                sb.append(":\n");
-
-                sb.append("ID:\t");
-                sb.append(Integer.toString(status.getSvid(i)));
-                sb.append("\n");
-
-                sb.append("方位角:\t");
-                sb.append(Float.toString(status.getAzimuthDegrees(i)));
-                sb.append("\n");
-
-                sb.append("仰角:\t");
-                sb.append(Float.toString(status.getElevationDegrees(i)));
-                sb.append("\n");
-
-                sb.append("卫星类型:\t");
                 switch (status.getConstellationType(i)){
                     case CONSTELLATION_BEIDOU:
-                        sb.append("北斗(中国)");
+                        beidou++;
                         break;
                     case CONSTELLATION_GALILEO:
-                        sb.append("伽利略(欧洲)");
+                        galileo++;
                         break;
                     case CONSTELLATION_GLONASS:
-                        sb.append("格洛纳斯(俄罗斯)（原名:GLONASS,GLOBAL NAVIGATION SATELLITE SYSTEM,全球卫星导航系统）");
+                        glonas++;
                         break;
                     case CONSTELLATION_GPS:
-                        sb.append("GPS(美国)(Global Positioning System,全球定位系统)");
+                        gps++;
                         break;
                     case CONSTELLATION_QZSS:
-                        sb.append("准天顶(日本)(原名:じゅんてんちょうえいせいシステム,准天顶卫星系统)");
+                        qzss++;
                         break;
                     case CONSTELLATION_SBAS:
-                        sb.append("SBAS(无国别)(原名:Satellite-Based Augmentation System,星基增强系统)");
+                        sbas++;
                         break;
                     case CONSTELLATION_UNKNOWN:
                     default:
-                        sb.append("未知");
                         break;
                 }
-                sb.append("\n");
                 MyPosition myPosition = new MyPosition(status.getConstellationType(i), status.getElevationDegrees(i), status.getAzimuthDegrees(i));
-                sb.append("radium:\t");
-                sb.append(myPosition.radium);
-                sb.append("\n");
 
                 myStatellites.add(new MyStatellite(status.getConstellationType(i),status.getSvid(i),status.getAzimuthDegrees(i),myPosition.radium));
 
                 myView.invalidate();
             }
-            sb.append("\n");
+            //写的好丑，以后改掉
+            final int mgps = gps,mbeidou = beidou,mglonas = glonas,mgalileo = galileo,mqzss = qzss,msbas = sbas;
             Runnable r = new Runnable() {
                 @Override
                 public void run() {
-                    mTextView.setText(sb.toString());
+                    mGpsTextView.setText(mgps + "颗");
+                    mBeidouTextView.setText(mbeidou + "颗");
+                    mGlonasTextView.setText(mglonas + "颗");
+                    mGalileoTextView.setText(mgalileo + "颗");
+                    mQzssTextView.setText(mqzss + "颗");
+                    mSbasTextView.setText(msbas + "颗");
                 }
             };
             mHandler.post(r);
@@ -209,7 +201,20 @@ public class MainActivity extends AppCompatActivity {
 
                 SensorManager.getOrientation(r, values);
 
-                mRotateDegree = (float)Math.toDegrees(values[0]) * -1;
+                float degree = (float)Math.toDegrees(values[0]) * -1;
+
+                if (mRotateDegrees.size() > 30) {
+                    mRotateDegrees.remove();
+                }
+                //degree += (degree < 0 ? 360 : 0);
+                mRotateDegrees.add(degree);
+
+                mRotateDegree = 0;
+
+                for (float f : mRotateDegrees){
+                    mRotateDegree += f;
+                }
+                mRotateDegree /= mRotateDegrees.size();
 
                 myView.invalidate();
             }
@@ -233,6 +238,7 @@ public class MainActivity extends AppCompatActivity {
         public static final String SATELLITE_COLOR_GLONASS = "#00cccc";
         public static final String SATELLITE_COLOR_GALILEO = "#f19cc2";
         public static final String SATELLITE_COLOR_QZSS = "#ffffff";
+        public static final String SATELLITE_COLOR_SBAS = "#cccc00";
         public static final String SATELLITE_COLOR_OTHER = "#999999";
         public static final int MAX_DISTANCE = 30000;
 
@@ -315,7 +321,7 @@ public class MainActivity extends AppCompatActivity {
                         paint.setColor(Color.parseColor(SATELLITE_COLOR_QZSS));
                         break;
                     case CONSTELLATION_SBAS:
-                        paint.setColor(Color.parseColor(SATELLITE_COLOR_OTHER));
+                        paint.setColor(Color.parseColor(SATELLITE_COLOR_SBAS));
                         break;
                     case CONSTELLATION_UNKNOWN:
                     default:
@@ -328,6 +334,27 @@ public class MainActivity extends AppCompatActivity {
             }
 
             canvas.restore();
+
+            if (myStatellites.isEmpty()){
+                paint.setStrokeWidth(1);
+                paint.setColor(Color.RED);
+                paint.setStyle(Paint.Style.FILL);
+                canvas.drawRect(mapCenterX - 300, mapCenterY - 125, mapCenterX + 300, mapCenterY + 125,paint) ;
+
+                paint.setStrokeWidth(4);
+                paint.setColor(Color.BLACK);
+                paint.setStyle(Paint.Style.STROKE);
+                canvas.drawRect(mapCenterX - 300, mapCenterY - 125, mapCenterX + 300, mapCenterY + 125,paint) ;
+
+                paint.setColor(Color.BLACK);
+                paint.setStyle(Paint.Style.FILL);
+
+                canvas.drawText("搜星中。。。",mapCenterX - 150,mapCenterY - 10,paint);
+
+                paint.setTextSize(40);
+
+                canvas.drawText("（长时间搜索不到，请重启APP）",mapCenterX - 300,mapCenterY + 60,paint);
+            }
 
             super.onDraw(canvas);
         }
